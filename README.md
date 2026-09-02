@@ -89,3 +89,4 @@ Webhook secrets are encrypted at rest **only when Cloud Functions are deployed**
 
 Webhook URLs are encrypted at rest by Cloud Functions (`WEBHOOK_CRYPTO_KEY` env, or a project-derived key). Widgets and Siri fire `triggerDeckButtonHttp` with the Firebase ID token stored in the App Group.
 # Hangar
+# Hangar

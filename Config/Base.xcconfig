@@ -1,0 +1,3 @@
+#include "Secrets.xcconfig"
+
+IPHONEOS_DEPLOYMENT_TARGET = 17.0

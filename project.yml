@@ -1,0 +1,161 @@
+name: Hangar
+options:
+  bundleIdPrefix: com.dev
+  deploymentTarget:
+    iOS: "17.0"
+  xcodeVersion: "16.0"
+  createIntermediateGroups: true
+  groupSortPosition: top
+  generateEmptyDirectories: true
+  defaultConfig: Debug
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    TARGETED_DEVICE_FAMILY: "1"
+    IPHONEOS_DEPLOYMENT_TARGET: "17.0"
+    MARKETING_VERSION: "1.0.0"
+    CURRENT_PROJECT_VERSION: "1"
+    SWIFT_STRICT_CONCURRENCY: targeted
+    ENABLE_USER_SCRIPT_SANDBOXING: YES
+    CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED: YES
+    DEVELOPMENT_TEAM: "V94M8SUV94"
+    CODE_SIGN_STYLE: Automatic
+    SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD: NO
+    SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD: NO
+    SUPPORTS_MACCATALYST: NO
+  configs:
+    Debug:
+      SWIFT_OPTIMIZATION_LEVEL: "-Onone"
+    Release:
+      SWIFT_OPTIMIZATION_LEVEL: "-O"
+
+packages:
+  firebase-ios-sdk:
+    url: https://github.com/firebase/firebase-ios-sdk.git
+    from: "11.8.0"
+  purchases-ios:
+    url: https://github.com/RevenueCat/purchases-ios-spm.git
+    from: "5.14.0"
+
+fileGroups:
+  - Config
+  - firebase
+  - README.md
+
+configFiles:
+  Debug: Config/Base.xcconfig
+  Release: Config/Base.xcconfig
+
+targets:
+  Hangar:
+    type: application
+    platform: iOS
+    configFiles:
+      Debug: Config/Base.xcconfig
+      Release: Config/Base.xcconfig
+    sources:
+      - path: Hangar
+      - path: Shared
+    resources:
+      - path: Hangar/Resources/Assets.xcassets
+      - path: Hangar/Resources/PrivacyInfo.xcprivacy
+      - path: Hangar/Resources/Sounds
+      - path: Hangar/Resources/GoogleService-Info.plist
+    info:
+      path: Hangar/Resources/Info.plist
+      properties:
+        CFBundleDisplayName: Hangar
+        CFBundleName: Hangar
+        CFBundleShortVersionString: "1.0.0"
+        CFBundleVersion: "1"
+        LSRequiresIPhoneOS: true
+        UILaunchScreen:
+          UIColorName: LaunchBackground
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+        UIStatusBarStyle: UIStatusBarStyleLightContent
+        UIUserInterfaceStyle: Dark
+        NSSupportsLiveActivities: true
+        NSSupportsLiveActivitiesFrequentUpdates: true
+        CFBundleURLTypes:
+          - CFBundleURLName: com.dev.flightdeck
+            CFBundleURLSchemes:
+              - flightdeck
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: false
+        REVENUECAT_API_KEY: $(REVENUECAT_API_KEY)
+        FUNCTIONS_REGION: $(FUNCTIONS_REGION)
+        DEMO_EMAIL: $(DEMO_EMAIL)
+        DEMO_PASSWORD: $(DEMO_PASSWORD)
+    entitlements:
+      path: Hangar/Hangar.entitlements
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.dev.flightdeck
+        PRODUCT_NAME: Hangar
+        INFOPLIST_FILE: Hangar/Resources/Info.plist
+        CODE_SIGN_ENTITLEMENTS: Hangar/Hangar.entitlements
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        GENERATE_INFOPLIST_FILE: false
+        TARGETED_DEVICE_FAMILY: "1"
+        LD_RUNPATH_SEARCH_PATHS: "$(inherited) @executable_path/Frameworks"
+    dependencies:
+      - sdk: WidgetKit.framework
+      - sdk: ActivityKit.framework
+      - sdk: StoreKit.framework
+      - package: firebase-ios-sdk
+        product: FirebaseAuth
+      - package: firebase-ios-sdk
+        product: FirebaseFirestore
+      - package: firebase-ios-sdk
+        product: FirebaseFunctions
+      - package: firebase-ios-sdk
+        product: FirebaseAnalytics
+      - package: purchases-ios
+        product: RevenueCat
+      - package: purchases-ios
+        product: RevenueCatUI
+      - target: HangarWidgets
+        embed: true
+        codeSign: true
+    preBuildScripts: []
+
+  HangarWidgets:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: HangarWidgets
+      - path: Shared
+      - path: Hangar/App/Data
+      - path: Hangar/App/Theme
+    info:
+      path: HangarWidgets/Info.plist
+      properties:
+        CFBundleDisplayName: Hangar
+        CFBundleShortVersionString: "1.0.0"
+        CFBundleVersion: "1"
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+        NSSupportsLiveActivities: true
+        NSSupportsLiveActivitiesFrequentUpdates: true
+    entitlements:
+      path: HangarWidgets/HangarWidgets.entitlements
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.dev.flightdeck.widgets
+        PRODUCT_NAME: HangarWidgets
+        INFOPLIST_FILE: HangarWidgets/Info.plist
+        CODE_SIGN_ENTITLEMENTS: HangarWidgets/HangarWidgets.entitlements
+        GENERATE_INFOPLIST_FILE: false
+        SKIP_INSTALL: YES
+        LD_RUNPATH_SEARCH_PATHS: "$(inherited) @executable_path/Frameworks @executable_path/../../Frameworks"
+        TARGETED_DEVICE_FAMILY: "1"
+        MARKETING_VERSION: "1.0.0"
+        CURRENT_PROJECT_VERSION: "1"
+    dependencies:
+      - sdk: SwiftUI.framework
+      - sdk: WidgetKit.framework
+      - sdk: ActivityKit.framework
+      - sdk: AppIntents.framework
+      - sdk: Intents.framework

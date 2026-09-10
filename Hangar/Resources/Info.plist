@@ -37,8 +37,6 @@
 	<true/>
 	<key>NSSupportsLiveActivities</key>
 	<true/>
-	<key>NSSupportsLiveActivitiesFrequentUpdates</key>
-	<true/>
 	<key>DEMO_EMAIL</key>
 	<string>$(DEMO_EMAIL)</string>
 	<key>DEMO_PASSWORD</key>

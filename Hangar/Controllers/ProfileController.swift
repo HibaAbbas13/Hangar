@@ -33,7 +33,7 @@ final class ProfileController: ObservableObject {
     func saveName(profile: UserProfile) async -> UserProfile {
         let trimmed = displayName.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else {
-            nameNotice = "Callsign cannot be empty."
+            nameNotice = "Name cannot be empty."
             return profile
         }
         isSavingName = true
@@ -43,7 +43,7 @@ final class ProfileController: ObservableObject {
         next.displayName = trimmed
         do {
             try await users.save(next)
-            nameNotice = "Callsign saved."
+            nameNotice = "Name saved."
             HapticService.success()
             return next
         } catch {

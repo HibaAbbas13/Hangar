@@ -5,7 +5,7 @@ struct DeckHomeView: View {
     @EnvironmentObject private var decks: DeckController
     @Environment(\.fdTheme) private var theme
     @Binding var showPaywall: Bool
-    @StateObject private var motion = MotionParallax()
+    @ObservedObject var console: ConsoleController
     @State private var showEditor = false
     @State private var showButtonEditor = false
     @State private var editingButton: DeckButton?
@@ -15,43 +15,33 @@ struct DeckHomeView: View {
         NavigationStack {
             FDScreen {
                 if decks.isSeeding {
-                    VStack(spacing: 14) {
-                        ProgressView()
-                            .tint(theme.brass)
-                        Text("Arming sample pad")
-                            .font(FDFont.ui(15, weight: .medium))
-                            .foregroundStyle(theme.fog)
-                    }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    seeding
                 } else if decks.decks.isEmpty {
-                    VStack(spacing: 16) {
-                        FDEmptyState(
-                            symbol: "square.stack.3d.up",
-                            title: "Commission a deck",
-                            message: "A deck is one service surface — Vercel, GitHub, Netlify, Supabase, or a custom hook wall.",
-                            actionTitle: "New deck",
-                            expands: false
-                        ) {
-                            openNewDeck()
-                        }
-                        FDGhostButton(title: "Load sample pad") {
-                            Task { await decks.installSampleFleet() }
-                        }
-                        .padding(.horizontal, 40)
-                    }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    emptyState
                 } else {
                     ScrollView(showsIndicators: false) {
-                        VStack(alignment: .leading, spacing: 28) {
+                        VStack(alignment: .leading, spacing: FDSpace.section) {
                             header
-                            deckPager
+                            ServiceSwitcher(
+                                decks: decks.decks,
+                                selectedId: decks.selectedDeckId,
+                                onSelect: { decks.select($0) },
+                                onAdd: openNewDeck,
+                                onEdit: { showDeckSettings = true },
+                                onAddStarter: decks.hasLiveExample ? nil : {
+                                    Task { await decks.installLiveExample(isPremium: app.isPremium) }
+                                }
+                            )
+                            .tutorialAnchor(.deck)
                             commandPad
-                            recentStrip
+                                .tutorialAnchor(.pad)
+                            recentRuns
                         }
-                        .padding(.horizontal, 20)
-                        .padding(.top, 8)
-                        .padding(.bottom, 28)
+                        .padding(.horizontal, FDSpace.gutter)
+                        .padding(.top, FDSpace.tight)
+                        .padding(.bottom, FDChromeInset.bottom)
                     }
+                    .fdScrollEdges(top: true)
                 }
             }
             .toolbar(.hidden, for: .navigationBar)
@@ -69,128 +59,121 @@ struct DeckHomeView: View {
             .sheet(isPresented: $showButtonEditor) {
                 ButtonEditorView(existing: nil)
             }
+            .sheet(item: $decks.buttonNeedingSecret) { button in
+                ButtonEditorView(existing: button)
+            }
             .sheet(item: $decks.pendingTrigger) { pending in
-                ConfirmSheet(
-                    title: pending.button.label,
-                    message: "This fires \(pending.deck.name) immediately through your configured webhook.",
-                    confirmTitle: "Execute now",
+                ConfirmRunSheet(
+                    deck: pending.deck,
+                    button: pending.button,
                     onConfirm: {
                         decks.confirmPending(premium: app.isPremium, executionMode: app.executionMode)
                     },
                     onCancel: { decks.pendingTrigger = nil }
                 )
-                .presentationDetents([.height(320)])
+                .presentationDetents([.height(430)])
                 .presentationDragIndicator(.visible)
-            }
-            .overlay(alignment: .top) {
-                if let toast = decks.toast {
-                    Text(toast)
-                        .font(FDFont.ui(13, weight: .medium))
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 10)
-                        .background(.ultraThinMaterial, in: Capsule())
-                        .overlay(Capsule().stroke(theme.hairline, lineWidth: 0.8))
-                        .padding(.top, 8)
-                        .onAppear {
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 2.2) {
-                                decks.toast = nil
-                            }
-                        }
-                }
+                .presentationBackground(theme.panel)
             }
         }
-        .onAppear { if !app.reducedMotion { motion.start() } }
-        .onDisappear { motion.stop() }
     }
 
+    private var seeding: some View {
+        VStack(spacing: FDSpace.base) {
+            ProgressView()
+                .tint(theme.brass)
+            Text("Setting up your pad")
+                .font(FDFont.ui(15, weight: .medium))
+                .foregroundStyle(theme.fog)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .accessibilityLabel("Setting up your pad")
+    }
+
+    /// The service is the subject of this screen, so it is the headline. It used
+    /// to be 13pt grey under a greeting set in 26pt serif, which told a first-time
+    /// user the time of day and nothing about what the app controls.
     private var header: some View {
-        HStack(alignment: .center, spacing: 12) {
-            VStack(alignment: .leading, spacing: 8) {
-                Text("HANGAR")
-                    .font(FDFont.micro(11))
-                    .tracking(3.2)
+        HStack(alignment: .firstTextBaseline, spacing: FDSpace.snug) {
+            VStack(alignment: .leading, spacing: FDSpace.hair) {
+                Text(app.isPremium ? "HANGAR" : "HANGAR · FREE")
+                    .font(FDFont.micro(10))
+                    .tracking(3)
                     .foregroundStyle(theme.fog)
-                Text(Greeting.line(name: app.profile?.firstName ?? "operator"))
-                    .font(FDFont.display(28))
+                Text(decks.selectedDeck?.name ?? "Hangar")
+                    .font(FDFont.display(30))
                     .foregroundStyle(theme.bone)
-                    .lineLimit(2)
-                    .minimumScaleFactor(0.86)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
             }
-            Spacer(minLength: 12)
-            FDBadge.tier(isPremium: app.isPremium)
+            Spacer(minLength: FDSpace.tight)
+            if let deck = decks.selectedDeck {
+                DeckHealthPill(deck: deck, buttons: decks.buttons)
+            }
         }
+        .accessibilityElement(children: .combine)
     }
 
-    private var deckPager: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                FDSectionLabel(text: "Active surface")
-                Spacer()
-                FDIconButton(systemImage: "plus", label: "New deck", action: openNewDeck)
-            }
-            TabView(selection: Binding(
-                get: { decks.selectedDeckId ?? decks.decks.first?.id ?? "" },
-                set: { id in
-                    if let deck = decks.decks.first(where: { $0.id == id }) {
-                        decks.select(deck)
+    private var emptyState: some View {
+        ScrollView(showsIndicators: false) {
+            VStack(spacing: FDSpace.base) {
+                FDEmptyState(
+                    symbol: "square.stack.3d.up",
+                    title: "Connect your first service",
+                    message: "A service holds the commands for one place you ship to — Vercel, GitHub, Netlify, Supabase, or anything that accepts a webhook.",
+                    actionTitle: "Add a service",
+                    expands: false
+                ) {
+                    openNewDeck()
+                }
+                VStack(spacing: FDSpace.tight) {
+                    FDGhostButton(title: "Load the therango pad", systemImage: "play.circle") {
+                        Task { await decks.installSampleFleet() }
+                    }
+                    Text("Live health checks against therango.co and its GitHub repo. Read-only until you add a deploy hook.")
+                        .font(FDFont.ui(12))
+                        .foregroundStyle(theme.fog)
+                        .multilineTextAlignment(.center)
+                    if !decks.hasLiveExample {
+                        Button("Load the therango example") {
+                            Task { await decks.installLiveExample(isPremium: app.isPremium) }
+                        }
+                        .font(FDFont.ui(13, weight: .medium))
+                        .foregroundStyle(theme.fog)
+                        .padding(.top, FDSpace.hair)
                     }
                 }
-            )) {
-                ForEach(decks.decks) { deck in
-                    DeckHeroCard(deck: deck) {
-                        showDeckSettings = true
-                    }
-                    .fdParallax(pitch: motion.pitch, roll: motion.roll, enabled: !app.reducedMotion)
-                    .padding(.horizontal, 2)
-                    .tag(deck.id)
-                }
+                .padding(.horizontal, FDSpace.major)
+                .padding(.top, FDSpace.tight)
             }
-            .tabViewStyle(.page(indexDisplayMode: .never))
-            .frame(height: 156)
-            if decks.decks.count > 1 {
-                HStack(spacing: 6) {
-                    ForEach(decks.decks) { deck in
-                        Capsule()
-                            .fill(deck.id == decks.selectedDeckId ? theme.brass : theme.hairline)
-                            .frame(width: deck.id == decks.selectedDeckId ? 16 : 6, height: 4)
-                    }
-                }
-            }
+            .padding(.vertical, FDSpace.major)
+            .padding(.bottom, FDChromeInset.bottom)
         }
     }
 
     private var commandPad: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                FDSectionLabel(text: "Command pad")
+        VStack(alignment: .leading, spacing: FDSpace.snug) {
+            HStack(alignment: .firstTextBaseline) {
+                Text("Commands")
+                    .font(FDFont.ui(17, weight: .semibold))
+                    .foregroundStyle(theme.bone)
+                if !app.isPremium, !decks.buttons.isEmpty {
+                    Text("\(decks.buttons.count)/\(Constants.Limits.freeButtonCount)")
+                        .font(FDFont.mono(11))
+                        .foregroundStyle(theme.fog)
+                        .accessibilityLabel("\(decks.buttons.count) of \(Constants.Limits.freeButtonCount) free commands used")
+                }
                 Spacer()
-                Button("Add", action: openNewButton)
-                    .font(FDFont.micro(11))
-                    .foregroundStyle(theme.brass)
+                Button(action: openNewButton) {
+                    Label("Add", systemImage: "plus")
+                        .font(FDFont.ui(14, weight: .semibold))
+                        .foregroundStyle(theme.brass)
+                        .labelStyle(.titleAndIcon)
+                }
+                .accessibilityLabel("Add a command")
             }
             if decks.buttons.isEmpty {
-                MetalCard {
-                    VStack(alignment: .leading, spacing: 12) {
-                        HStack(spacing: 14) {
-                            Image(systemName: "plus.square.dashed")
-                                .foregroundStyle(theme.brass)
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("No commands yet")
-                                    .font(FDFont.ui(15, weight: .semibold))
-                                    .foregroundStyle(theme.bone)
-                                Text("Bind a webhook, or load the sample pad.")
-                                    .font(FDFont.ui(13))
-                                    .foregroundStyle(theme.fog)
-                            }
-                        }
-                        Button("Load sample pad") {
-                            Task { await decks.installSampleFleet() }
-                        }
-                        .font(FDFont.ui(13, weight: .semibold))
-                        .foregroundStyle(theme.brass)
-                    }
-                }
-                .onTapGesture { openNewButton() }
+                padEmptyState
             } else {
                 CommandPadGrid(
                     buttons: decks.buttons,
@@ -211,12 +194,61 @@ struct DeckHomeView: View {
         }
     }
 
-    private var recentStrip: some View {
-        Group {
-            if let error = decks.lastError {
-                Text(error)
+    private var padEmptyState: some View {
+        MetalCard {
+            VStack(alignment: .leading, spacing: FDSpace.snug) {
+                Text("This service has no commands")
+                    .font(FDFont.ui(15, weight: .semibold))
+                    .foregroundStyle(theme.bone)
+                Text("A command is one webhook — a deploy hook, a rollback, a health check. Add one, or start from a \(decks.selectedDeck?.provider.displayName ?? "provider") template.")
                     .font(FDFont.ui(13))
-                    .foregroundStyle(theme.rust)
+                    .foregroundStyle(theme.fog)
+                    .fixedSize(horizontal: false, vertical: true)
+                Button(action: openNewButton) {
+                    Label("Add a command", systemImage: "plus")
+                        .font(FDFont.ui(14, weight: .semibold))
+                        .foregroundStyle(theme.brass)
+                }
+            }
+        }
+    }
+
+    /// The last few runs, inline.
+    ///
+    /// The pad on its own left most of the screen empty, and the Console — the
+    /// thing that makes the app trustworthy — was a tab away and easy to miss.
+    /// Three rows here fill the space with the only content that belongs on
+    /// this screen and point at the tab for the rest.
+    @ViewBuilder
+    private var recentRuns: some View {
+        let events = Array(
+            console.events
+                .filter { $0.deckId == decks.selectedDeckId }
+                .prefix(3)
+        )
+        if !events.isEmpty {
+            VStack(alignment: .leading, spacing: FDSpace.snug) {
+                HStack(alignment: .firstTextBaseline) {
+                    Text("Recent runs")
+                        .font(FDFont.ui(17, weight: .semibold))
+                        .foregroundStyle(theme.bone)
+                    Spacer()
+                    Button("Open Console") { app.selectedTab = .console }
+                        .font(FDFont.ui(14, weight: .semibold))
+                        .foregroundStyle(theme.brass)
+                }
+                VStack(spacing: 0) {
+                    ForEach(Array(events.enumerated()), id: \.element.id) { index, event in
+                        if index > 0 { FDHairline() }
+                        RecentRunRow(event: event)
+                    }
+                }
+                .padding(.horizontal, FDSpace.snug)
+                .background(theme.panel, in: RoundedRectangle(cornerRadius: FDRadius.card, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: FDRadius.card, style: .continuous)
+                        .stroke(theme.hairline, lineWidth: 1)
+                )
             }
         }
     }
@@ -238,52 +270,78 @@ struct DeckHomeView: View {
     }
 }
 
-struct DeckHeroCard: View {
+private struct RecentRunRow: View {
     @Environment(\.fdTheme) private var theme
-    let deck: Deck
-    let onEdit: () -> Void
+    let event: ActivityEvent
 
     var body: some View {
-        MetalCard(padded: false) {
-            VStack(alignment: .leading, spacing: 16) {
-                HStack {
-                    HStack(spacing: 10) {
-                        Image(systemName: deck.iconName)
-                            .font(.system(size: 16, weight: .light))
-                            .foregroundStyle(theme.brass)
-                            .frame(width: 36, height: 36)
-                            .background(theme.inset, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(deck.provider.shortCallsign)
-                                .font(FDFont.micro(10))
-                                .tracking(1.4)
-                                .foregroundStyle(theme.fog)
-                            Text(deck.name)
-                                .font(FDFont.ui(18, weight: .semibold))
-                                .foregroundStyle(theme.bone)
-                                .lineLimit(1)
-                        }
-                    }
-                    Spacer()
-                    Button(action: onEdit) {
-                        Image(systemName: "slider.horizontal.3")
-                            .foregroundStyle(theme.fog)
-                    }
-                }
-                HStack {
-                    FDBadge(text: deck.isActive ? "Live" : "Hold", tone: deck.isActive ? .moss : .fog)
-                    if deck.isShared {
-                        FDBadge(text: "Shared", tone: .brass)
-                    }
-                    Spacer()
-                    if let last = deck.lastTriggeredAt {
-                        Text(last, style: .relative)
-                            .font(FDFont.mono(11))
-                            .foregroundStyle(theme.fog)
-                    }
+        HStack(spacing: FDSpace.snug) {
+            Image(systemName: event.status.symbolName)
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(event.status.tint(theme))
+                .frame(width: 16)
+            Text(event.buttonLabel)
+                .font(FDFont.ui(14))
+                .foregroundStyle(theme.bone)
+                .lineLimit(1)
+            Spacer(minLength: FDSpace.tight)
+            if let code = event.statusCode {
+                Text("\(code)")
+                    .font(FDFont.mono(12, weight: .medium))
+                    .foregroundStyle(event.status.tint(theme))
+            }
+            Text(FDRunOutcome.relative(event.createdAt))
+                .font(FDFont.mono(10))
+                .foregroundStyle(theme.fog)
+        }
+        .frame(height: 42)
+        .accessibilityElement(children: .combine)
+    }
+}
+
+/// The one-glance answer to "is this service healthy right now".
+///
+/// It reads from the commands already on screen rather than adding a fetch, and
+/// it says nothing at all until something has actually run — a health badge
+/// that is green before you have used the app is a lie.
+struct DeckHealthPill: View {
+    @Environment(\.fdTheme) private var theme
+    let deck: Deck
+    let buttons: [DeckButton]
+
+    private var lastRun: DeckButton? {
+        buttons.filter { $0.lastTriggered != nil }
+            .max { ($0.lastTriggered ?? .distantPast) < ($1.lastTriggered ?? .distantPast) }
+    }
+
+    private var failing: Int {
+        buttons.filter { $0.lastStatus == .failed || $0.lastStatus == .blocked }.count
+    }
+
+    var body: some View {
+        if let last = lastRun, let at = last.lastTriggered {
+            let ok = failing == 0
+            HStack(spacing: 5) {
+                Image(systemName: ok ? "checkmark.circle.fill" : "exclamationmark.circle.fill")
+                    .font(.system(size: 10, weight: .bold))
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(ok ? "All clear" : "\(failing) failing")
+                        .font(FDFont.micro(10))
+                        .tracking(0.6)
+                    Text(FDRunOutcome.relative(at))
+                        .font(FDFont.mono(9))
+                        .foregroundStyle(theme.fog)
                 }
             }
-            .padding(18)
+            .foregroundStyle(ok ? theme.moss : theme.rust)
+            .padding(.horizontal, FDSpace.tight)
+            .padding(.vertical, 6)
+            .background((ok ? theme.moss : theme.rust).opacity(0.12), in: Capsule())
+            .overlay(Capsule().stroke((ok ? theme.moss : theme.rust).opacity(0.3), lineWidth: 1))
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(ok
+                ? "All commands healthy. Last run \(FDRunOutcome.relative(at))."
+                : "\(failing) commands failing. Last run \(FDRunOutcome.relative(at)).")
         }
     }
 }

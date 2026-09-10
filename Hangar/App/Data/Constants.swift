@@ -13,15 +13,11 @@ enum Constants {
         enum Product {
             static let supporter = "com.dev.hangar.supporter"
             static let groundCrew = "com.dev.hangar.groundcrew"
-            static let lifetime = "com.dev.hangar.lifetime"
-            static let proAnnual = "com.dev.hangar.pro.annual"
-            static let teamMonthly = "com.dev.hangar.team.monthly"
         }
     }
 
     enum Monetization {
         static let paywallEnabled = true
-        static let judgePromoCode = "HANGAR-JUDGE"
         static let freeTrialDays = 7
     }
 
@@ -87,25 +83,41 @@ enum Constants {
         }
     }
 
-    enum Debug {
-        static var isTestFlight: Bool {
-            Bundle.main.appStoreReceiptURL?.lastPathComponent == "sandboxReceipt"
+    /// The demo account from `DEMO_EMAIL` in Secrets.xcconfig is Premium on
+    /// every build, including App Store, so review and local testing do not
+    /// depend on a sandbox purchase. Leave `DEMO_EMAIL` empty in public
+    /// example configs so clones do not ship an allowlist.
+    enum Access {
+        static func isAlwaysPremium(_ email: String?) -> Bool {
+            guard let email, !email.isEmpty else { return false }
+            let normalized = email.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            let demo = Constants.Demo.email.lowercased()
+            return demo.isEmpty == false && normalized == demo
         }
+    }
 
+    enum Debug {
         static var isInternalBuild: Bool {
             #if DEBUG
             true
             #else
-            isTestFlight
+            false
             #endif
         }
     }
 
     enum Legal {
-        static let appStoreId = "0000000000"
-        static let privacyURL = "https://flightdeck.dev/privacy"
-        static let termsURL = "https://flightdeck.dev/terms"
-        static let supportEmail = "support@flightdeck.dev"
+        static let appStoreId = "6806856067"
+        /// Public copies of the documents that ship inside the app.
+        /// Hosted from `web/` at hangar-legal.vercel.app. See `web/README.md`.
+        private static let siteRoot = "https://hangar-legal.vercel.app"
+        static let privacyURL = "\(siteRoot)/privacy"
+        static let termsURL = "\(siteRoot)/terms"
+        /// For the App Store Connect "Support URL" field. In the app itself
+        /// support is a mailto — a person with a broken deploy wants to write
+        /// to someone, not read a page.
+        static let supportURL = "\(siteRoot)/support"
+        static let supportEmail = "hibaabbas1306@gmail.com"
         static let lastUpdated = "29 August 2026"
 
         static var writeReviewURL: String {

@@ -6,8 +6,6 @@ final class PaywallController: ObservableObject {
     @Published var isWorking = false
     @Published var errorMessage: String?
     @Published var showSuccess = false
-    @Published var promoCode = ""
-    @Published var promoNotice: String?
 
     let store = RevenueCatService.shared
     private let users = UserRepository()
@@ -68,41 +66,12 @@ final class PaywallController: ObservableObject {
             if premium {
                 try await users.setTier(userId: userId, tier: .premium)
                 showSuccess = true
-            } else if JudgePromoStore.isUnlocked {
-                try await users.setTier(userId: userId, tier: .premium)
-                showSuccess = true
             } else {
                 errorMessage = "No active premium entitlement found."
             }
         } catch {
             errorMessage = AppErrorMapper.message(for: error)
         }
-    }
-
-    func redeemJudgePromo(userId: String) async {
-        errorMessage = nil
-        promoNotice = nil
-        guard JudgePromoStore.matches(promoCode) else {
-            errorMessage = "That code is not valid."
-            HapticService.error()
-            return
-        }
-        isWorking = true
-        defer { isWorking = false }
-        JudgePromoStore.unlock()
-        do {
-            try await users.setTier(userId: userId, tier: .premium)
-        } catch {
-            
-            promoNotice = "Pro unlocked on this device. Cloud sync will retry."
-        }
-        await store.refresh()
-        showSuccess = true
-        if promoNotice == nil {
-            promoNotice = "Hangar Pro unlocked."
-        }
-        HapticService.success()
-        promoCode = ""
     }
 
     func redeemAppStoreOfferCode() {

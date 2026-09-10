@@ -30,16 +30,17 @@ struct LegalView: View {
                         }
                     }
 
-                    if let url = URL(string: document.url) {
+                    if !document.url.isEmpty, let url = URL(string: document.url) {
                         FDGhostButton(title: "Open the web copy", systemImage: "safari") {
                             openURL(url)
                         }
                     }
                 }
-                .padding(.horizontal, 20)
-                .padding(.top, 8)
-                .padding(.bottom, 120)
+                .padding(.horizontal, FDSpace.gutter)
+                .padding(.top, FDSpace.tight)
+                .padding(.bottom, FDChromeInset.bottom)
             }
+            .fdScrollEdges(top: true)
         }
         .toolbar(.hidden, for: .navigationBar)
     }

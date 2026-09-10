@@ -2,40 +2,18 @@ import SwiftUI
 
 struct FDTabBar: View {
     @Environment(\.fdTheme) private var theme
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Binding var selection: AppTab
+    @Namespace private var indicator
 
     var body: some View {
         HStack(spacing: 0) {
             ForEach(AppTab.allCases) { tab in
-                Button {
-                    withAnimation(FDMotion.snappy) { selection = tab }
-                } label: {
-                    VStack(spacing: 6) {
-                        Image(systemName: tab.symbolName)
-                            .font(.system(size: 16, weight: selection == tab ? .semibold : .light))
-                            .symbolVariant(selection == tab ? .fill : .none)
-                        Text(tab.title)
-                            .font(FDFont.micro(10))
-                            .tracking(0.6)
-                    }
-                    .foregroundStyle(selection == tab ? theme.brass : theme.fog)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 10)
-                    .background {
-                        if selection == tab {
-                            Capsule()
-                                .fill(theme.brass.opacity(0.12))
-                                .overlay(Capsule().stroke(theme.brass.opacity(0.25), lineWidth: 0.8))
-                                .padding(.horizontal, 6)
-                        }
-                    }
-                }
-                .buttonStyle(.plain)
+                item(tab)
             }
         }
-        .padding(.horizontal, 8)
-        .padding(.top, 10)
-        .padding(.bottom, 8)
+        .padding(.horizontal, 6)
+        .padding(.vertical, 6)
         .background {
             RoundedRectangle(cornerRadius: 26, style: .continuous)
                 .fill(.ultraThinMaterial)
@@ -53,5 +31,60 @@ struct FDTabBar: View {
         .padding(.horizontal, 18)
         .padding(.bottom, 10)
         .padding(.top, 4)
+    }
+
+    private func item(_ tab: AppTab) -> some View {
+        let selected = selection == tab
+        return Button {
+            guard selection != tab else { return }
+            withAnimation(reduceMotion ? nil : FDMotion.snappy) { selection = tab }
+            HapticService.select()
+        } label: {
+            VStack(spacing: 5) {
+                Image(systemName: tab.symbolName)
+                    .font(.system(size: 16, weight: selected ? .semibold : .regular))
+                    .symbolVariant(selected ? .fill : .none)
+                Text(tab.title)
+                    .font(FDFont.micro(10))
+                    .tracking(0.4)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+            }
+            .foregroundStyle(selected ? theme.brass : theme.fog)
+            .frame(maxWidth: .infinity)
+            // 44pt is the floor Apple sets for a control, and this is the most
+            // used control in the app.
+            .frame(height: 48)
+            .background {
+                if selected {
+                    Capsule()
+                        .fill(theme.brass.opacity(0.14))
+                        .overlay(Capsule().stroke(theme.brass.opacity(0.25), lineWidth: 0.8))
+                        .matchedGeometryEffect(id: "tab", in: indicator)
+                }
+            }
+            // Without this the button is only tappable where the glyph and the
+            // label actually paint — the transparent padding around a thin SF
+            // Symbol was not hit-testable, so an unselected tab took several
+            // attempts to hit. Every tab is now a full-width 48pt target.
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(tab.title)
+        .accessibilityAddTraits(selected ? [.isButton, .isSelected] : .isButton)
+        .modifier(ConsoleAnchor(tab: tab))
+    }
+}
+
+/// The tutorial points at the Console tab, so only that item carries an anchor.
+private struct ConsoleAnchor: ViewModifier {
+    let tab: AppTab
+
+    func body(content: Content) -> some View {
+        if tab == .console {
+            content.tutorialAnchor(.console)
+        } else {
+            content
+        }
     }
 }

@@ -73,14 +73,14 @@ enum ExecutionMode: String, Codable, CaseIterable, Identifiable {
     var title: String {
         switch self {
         case .onDevice: return "On device"
-        case .cloudProxy: return "Hangar Cloud"
+        case .cloudProxy: return "Encrypted (recommended)"
         }
     }
 
     var subtitle: String {
         switch self {
         case .onDevice: return "Fires webhooks from this iPhone. Works without Cloud Functions."
-        case .cloudProxy: return "Fires through Hangar Cloud so widgets and Siri stay secret-safe."
+        case .cloudProxy: return "Your webhook is encrypted on our server. Widgets and Siri work without your secrets touching the device."
         }
     }
 }
@@ -109,9 +109,12 @@ enum AppTab: String, CaseIterable, Identifiable, Hashable {
 
     var id: String { rawValue }
 
+    /// Plain words on the tab bar, Hangar's vocabulary taught on the page
+    /// itself. "Deck" stays the name in code and in the docs, but a tab that
+    /// says "Services" needs no explaining to someone opening the app cold.
     var title: String {
         switch self {
-        case .decks: return "Decks"
+        case .decks: return "Services"
         case .console: return "Console"
         case .flows: return "Flows"
         case .hangar: return "Account"

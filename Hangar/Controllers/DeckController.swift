@@ -17,6 +17,8 @@ final class DeckController: ObservableObject {
     @Published var isLoading = false
     @Published var triggeringIds: Set<String> = []
     @Published var pendingTrigger: PendingTrigger?
+    /// Set when an unarmed command is pressed, so the pad can open its editor.
+    @Published var buttonNeedingSecret: DeckButton?
     @Published var lastError: String?
     @Published var toast: String?
     @Published var isSeeding = false
@@ -94,6 +96,11 @@ final class DeckController: ObservableObject {
 
     func requestTrigger(button: DeckButton, premium: Bool, executionMode: ExecutionMode) {
         guard let deck = selectedDeck else { return }
+        if button.needsArming {
+            buttonNeedingSecret = button
+            HapticService.warning()
+            return
+        }
         if button.requiresConfirmation {
             pendingTrigger = PendingTrigger(deck: deck, button: button)
             HapticService.warning()
@@ -170,8 +177,68 @@ final class DeckController: ObservableObject {
         isPremium || buttons.count < Constants.Limits.freeButtonCount
     }
 
+    func syncWidgetsToExtension() {
+        guard !userId.isEmpty else { return }
+        if let selected = selectedDeck, buttons.isEmpty == false {
+            buttonsCache[selected.id] = buttons
+        }
+        WidgetSyncService.publish(userId: userId, decks: decks, buttonsByDeck: buttonsCache)
+        Task { await prefetchButtonsForWidgets() }
+    }
+
+    private func prefetchButtonsForWidgets() async {
+        var changed = false
+        for deck in decks.filter(\.isActive).prefix(3) {
+            if let cached = buttonsCache[deck.id], cached.isEmpty == false { continue }
+            let owner = deck.ownerId.isEmpty ? userId : deck.ownerId
+            guard let fetched = try? await buttonsRepo.fetch(ownerId: owner, deckId: deck.id),
+                  fetched.isEmpty == false else { continue }
+            buttonsCache[deck.id] = fetched
+            changed = true
+        }
+        guard changed else { return }
+        WidgetSyncService.publish(userId: userId, decks: decks, buttonsByDeck: buttonsCache)
+    }
+
     func installSampleFleetIfNeeded() async {
         await installSampleFleet()
+    }
+
+    /// True once the GitHub starter pad is installed.
+    ///
+    /// This used to return true if *either* starter deck existed. Now that the
+    /// Vercel deck is what every account is seeded with, that made it always
+    /// true and hid the option to add the GitHub one.
+    var hasLiveExample: Bool {
+        decks.contains { $0.name == GitHubFleet.deckName }
+    }
+
+    func installLiveExample(isPremium: Bool) async {
+        guard !userId.isEmpty, !isSeedLocked else { return }
+        isSeedLocked = true
+        defer { isSeedLocked = false }
+        do {
+            let vercel = try await upsertNamedDeck(
+                name: LiveExampleFleet.vercelDeckName,
+                provider: .vercel,
+                isPremium: isPremium
+            )
+            _ = try await seedNamedCommands(LiveExampleFleet.vercelCommands, onto: vercel)
+            let github = try await upsertNamedDeck(
+                name: LiveExampleFleet.githubDeckName,
+                provider: .github,
+                isPremium: isPremium
+            )
+            _ = try await seedNamedCommands(LiveExampleFleet.githubCommands, onto: github)
+            selectedDeckId = vercel.id
+            toast = "\(GitHubFleet.deckName) added"
+            lastError = nil
+            HapticService.success()
+            syncWidgetsToExtension()
+        } catch {
+            lastError = AppErrorMapper.message(for: error)
+            HapticService.error()
+        }
     }
 
     func installSampleFleet() async {
@@ -188,8 +255,9 @@ final class DeckController: ObservableObject {
             let seeded = try await seedCommands(onto: deck)
             if seeded {
                 selectedDeckId = deck.id
-                toast = "Sample pad armed"
+                toast = "\(SampleFleet.deckName) pad ready"
             }
+            syncWidgetsToExtension()
         } catch {
             lastError = AppErrorMapper.message(for: error)
             if let existing = selectedDeck ?? ownedDecks.first {
@@ -197,14 +265,14 @@ final class DeckController: ObservableObject {
             } else {
                 applyLocalSample(makeSampleDeck())
             }
-            toast = "Sample pad armed on device"
+            toast = "Pad ready on device"
+            syncWidgetsToExtension()
         }
     }
 
     private struct PreparedSample {
         var deck: Deck
         var buttons: [DeckButton]
-        var events: [ActivityEvent]
     }
 
     private func resolveSampleDeck() async throws -> Deck {
@@ -222,58 +290,82 @@ final class DeckController: ObservableObject {
         guard existing == 0 else { return false }
         let buttons = makeSampleButtons()
         for button in buttons {
-            let secret = WebhookSecret(
-                url: button.webhookUrl,
-                headers: button.headers,
-                body: button.body,
-                method: button.method
-            )
-            _ = try await buttonsRepo.saveWithSecret(
-                button,
-                secret: secret,
-                ownerId: deck.ownerId,
-                deckId: deck.id,
-                mode: .onDevice
-            )
-        }
-        for event in makeSampleEvents(deck: deck, buttons: buttons) {
-            try? await activityRepo.append(event, userId: userId)
+            try await seed(button, onto: deck)
         }
         return true
     }
 
-    private func makeSampleButtons() -> [DeckButton] {
-        SampleFleet.commands.enumerated().map { index, command in
-            var button = DeckButton.make(label: command.label, iconName: command.iconName, sortOrder: index)
-            button.requiresConfirmation = command.requiresConfirmation
-            button.method = command.method
-            button.webhookUrl = command.url
-            button.headers = command.headers
-            button.body = command.body
-            return button
+    private func upsertNamedDeck(
+        name: String,
+        provider: ServiceProvider,
+        isPremium: Bool
+    ) async throws -> Deck {
+        if let existing = ownedDecks.first(where: { $0.name == name }) {
+            return existing
         }
+        let ownedCount = ownedDecks.count
+        if ownedCount >= Constants.Limits.freeDeckCount && !isPremium {
+            throw WebhookServiceError.function("Premium is required for additional services.")
+        }
+        let deck = Deck.make(
+            ownerId: userId,
+            name: name,
+            provider: provider,
+            sortOrder: ownedCount
+        )
+        try await decksRepo.save(deck, ownerId: userId)
+        return deck
     }
 
-    private func makeSampleEvents(deck: Deck, buttons: [DeckButton]) -> [ActivityEvent] {
-        guard buttons.count >= 3 else { return [] }
-        return [
-            ActivityEvent.make(
-                deck: deck,
-                button: buttons[2],
-                status: .succeeded,
-                statusCode: 200,
-                durationMs: 184,
-                message: "Sample health ping — pad is live."
-            ),
-            ActivityEvent.make(
-                deck: deck,
-                button: buttons[0],
-                status: .succeeded,
-                statusCode: 200,
-                durationMs: 412,
-                message: "Sample redeploy accepted."
-            )
-        ]
+    @discardableResult
+    private func seedNamedCommands(_ commands: [SampleFleet.Command], onto deck: Deck) async throws -> Bool {
+        let existing = try await buttonsRepo.count(ownerId: deck.ownerId, deckId: deck.id)
+        guard existing == 0 else { return false }
+        for (index, command) in commands.enumerated() {
+            try await seed(makeButton(command, sortOrder: index), onto: deck)
+        }
+        return true
+    }
+
+    private func makeButton(_ command: SampleFleet.Command, sortOrder: Int) -> DeckButton {
+        var button = DeckButton.make(label: command.label, iconName: command.iconName, sortOrder: sortOrder)
+        button.requiresConfirmation = command.requiresConfirmation
+        button.method = command.method
+        button.webhookUrl = command.url
+        button.headers = command.headers
+        button.body = command.body
+        return button
+    }
+
+    /// Writes one seeded command.
+    ///
+    /// A command that ships unarmed has no URL to encrypt, so it is written as
+    /// metadata only. Sending an empty secret through the encrypt-and-store path
+    /// would either fail or store an endpoint of "".
+    private func seed(_ button: DeckButton, onto deck: Deck) async throws {
+        guard button.hasSecret else {
+            try await buttonsRepo.saveMetadata(button, ownerId: deck.ownerId, deckId: deck.id)
+            return
+        }
+        let secret = WebhookSecret(
+            url: button.webhookUrl,
+            headers: button.headers,
+            body: button.body,
+            method: button.method
+        )
+        _ = try await buttonsRepo.saveWithSecret(
+            button,
+            secret: secret,
+            ownerId: deck.ownerId,
+            deckId: deck.id,
+            mode: .onDevice
+        )
+    }
+
+    private func makeSampleButtons() -> [DeckButton] {
+        SampleFleet.commands.enumerated().map { index, command in
+            makeButton(command, sortOrder: index)
+        }
     }
 
     private func makeSampleDeck() -> PreparedSample {
@@ -283,12 +375,7 @@ final class DeckController: ObservableObject {
             provider: .vercel,
             sortOrder: 0
         )
-        let buttons = makeSampleButtons()
-        return PreparedSample(
-            deck: deck,
-            buttons: buttons,
-            events: makeSampleEvents(deck: deck, buttons: buttons)
-        )
+        return PreparedSample(deck: deck, buttons: makeSampleButtons())
     }
 
     private func applyLocalSample(_ prepared: PreparedSample) {
@@ -296,6 +383,7 @@ final class DeckController: ObservableObject {
         ownedDecks = [prepared.deck]
         applyLocalButtons(prepared.buttons, onto: prepared.deck)
         mergeDecks()
+        syncWidgetsToExtension()
     }
 
     private func applyLocalButtons(_ sampleButtons: [DeckButton], onto deck: Deck) {
@@ -303,14 +391,20 @@ final class DeckController: ObservableObject {
         buttons = sampleButtons
         buttonsCache[deck.id] = sampleButtons
         selectedDeckId = deck.id
+        syncWidgetsToExtension()
     }
 
     private func execute(button: DeckButton, deck: Deck, premium: Bool, mode: ExecutionMode) async {
         triggeringIds.insert(button.id)
         lastError = nil
+        RunHUDStore.shared.begin(
+            title: button.label,
+            detail: "Sending to \(deck.name)",
+            buttonId: button.id
+        )
         HapticService.heavy()
         SoundService.shared.play(.press)
-        if premium, LiveActivityService.shared.start(deck: deck, button: button) == false {
+        if LiveActivityService.shared.start(deck: deck, button: button) == false {
             PermissionService.shared.flag(.liveActivities)
         }
         let started = Date()
@@ -324,9 +418,17 @@ final class DeckController: ObservableObject {
                 result: result,
                 premium: premium
             )
+            presentRunResult(result)
         } catch {
             let message = AppErrorMapper.message(for: error)
             presentFailure(message)
+            RunHUDStore.shared.finish(
+                title: button.label,
+                detail: message,
+                succeeded: false,
+                statusCode: nil,
+                durationMs: Int(Date().timeIntervalSince(started) * 1000)
+            )
             if premium {
                 LiveActivityService.shared.finish(buttonId: button.id, status: .failed, message: message)
             }
@@ -341,7 +443,7 @@ final class DeckController: ObservableObject {
             await appendActivity(event)
         }
         triggeringIds.remove(button.id)
-        WidgetSyncService.publish(userId: userId, decks: decks, buttonsByDeck: buttonsCache)
+        syncWidgetsToExtension()
     }
 
     private func fire(button: DeckButton, deck: Deck, mode: ExecutionMode) async throws -> TriggerResult {
@@ -384,7 +486,9 @@ final class DeckController: ObservableObject {
                 ownerId: deck.ownerId,
                 deckId: deck.id,
                 buttonId: button.id,
-                status: result.status
+                status: result.status,
+                statusCode: result.statusCode,
+                durationMs: result.durationMs
             )
         } catch {
             
@@ -399,13 +503,11 @@ final class DeckController: ObservableObject {
             )
         )
         let ok = result.status == .succeeded
-        toast = ok ? "Command accepted" : "Command returned a fault"
         if ok {
             HapticService.success()
             SoundService.shared.play(.success)
             ReviewService.registerSuccess()
         } else {
-            lastError = result.message.isEmpty ? "Command returned a fault" : result.message
             HapticService.error()
             SoundService.shared.play(.fault)
         }
@@ -422,13 +524,29 @@ final class DeckController: ObservableObject {
         }
     }
 
+    private func presentRunResult(_ result: TriggerResult) {
+        let ok = result.status == .succeeded
+        let detail: String
+        if ok {
+            detail = result.message.isEmpty ? "Landed. Logged in History." : result.message
+        } else {
+            detail = result.message.isEmpty ? "The hook answered with a fault." : result.message
+        }
+        RunHUDStore.shared.finish(
+            title: result.buttonLabel,
+            detail: detail,
+            succeeded: ok,
+            statusCode: result.statusCode,
+            durationMs: result.durationMs
+        )
+    }
+
     private func presentFailure(_ error: Error) {
         presentFailure(AppErrorMapper.message(for: error))
     }
 
     private func presentFailure(_ message: String) {
         lastError = message
-        toast = message
         HapticService.error()
         SoundService.shared.play(.fault)
     }
@@ -438,12 +556,13 @@ final class DeckController: ObservableObject {
         buttonListener = buttonsRepo.observe(ownerId: deck.ownerId, deckId: deck.id) { [weak self] buttons in
             Task { @MainActor in
                 if self?.localSampleActive == true && buttons.isEmpty {
+                    self?.syncWidgetsToExtension()
                     return
                 }
                 self?.buttons = buttons
                 self?.buttonsCache[deck.id] = buttons
                 if let self {
-                    WidgetSyncService.publish(userId: self.userId, decks: self.decks, buttonsByDeck: self.buttonsCache)
+                    self.syncWidgetsToExtension()
                     if buttons.isEmpty {
                         await self.installSampleFleet()
                     }
@@ -489,5 +608,6 @@ final class DeckController: ObservableObject {
         } else if let selected = selectedDeck {
             listenButtons(for: selected)
         }
+        syncWidgetsToExtension()
     }
 }

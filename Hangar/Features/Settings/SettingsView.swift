@@ -15,8 +15,8 @@ struct SettingsView: View {
         NavigationStack {
             FDScreen {
                 ScrollView(showsIndicators: false) {
-                    VStack(alignment: .leading, spacing: 22) {
-                        FDPageHeader(eyebrow: "Account", title: "Account & rails", horizontalPadding: 0)
+                    VStack(alignment: .leading, spacing: FDSpace.gutter) {
+                        FDPageHeader(eyebrow: "Hangar", title: "Account", horizontalPadding: 0)
                         accountCard
                         MetalCard {
                             VStack(alignment: .leading, spacing: 14) {
@@ -44,9 +44,6 @@ struct SettingsView: View {
                                         }
                                     }
                                 }
-                                Text("Hangar Cloud keeps webhook secrets off the device for widgets and Siri. If Cloud Functions are not deployed, switch back to On device.")
-                                    .font(FDFont.ui(12))
-                                    .foregroundStyle(theme.fog)
                                 if let error = controller.errorMessage {
                                     Text(error)
                                         .font(FDFont.ui(13))
@@ -55,7 +52,7 @@ struct SettingsView: View {
                             }
                         }
                         MetalCard {
-                            VStack(alignment: .leading, spacing: 12) {
+                            VStack(alignment: .leading, spacing: FDSpace.snug) {
                                 FDSectionLabel(text: "Team")
                                 TeamView(showPaywall: $showPaywall)
                             }
@@ -69,7 +66,7 @@ struct SettingsView: View {
                         FDGhostButton(title: "Sign out", systemImage: "rectangle.portrait.and.arrow.right") {
                             app.signOut()
                         }
-                        Text("Hangar \(appVersion)  ·  com.dev.flightdeck")
+                        Text("Hangar \(appVersion) (\(appBuild))")
                             .font(FDFont.mono(11))
                             .foregroundStyle(theme.fog)
                             .frame(maxWidth: .infinity)
@@ -87,10 +84,11 @@ struct SettingsView: View {
                                 }
                             }
                     }
-                    .padding(.horizontal, 20)
-                    .padding(.top, 8)
-                    .padding(.bottom, 120)
+                    .padding(.horizontal, FDSpace.gutter)
+                    .padding(.top, FDSpace.tight)
+                    .padding(.bottom, FDChromeInset.bottom)
                 }
+                .fdScrollEdges(top: true)
             }
             .toolbar(.hidden, for: .navigationBar)
         }
@@ -135,13 +133,8 @@ struct SettingsView: View {
                         .font(FDFont.ui(12))
                         .foregroundStyle(theme.fog)
                         .fixedSize(horizontal: false, vertical: true)
-                } else if Constants.Debug.isTestFlight, tierOverride == .premium {
-                    Text("TestFlight build — every rail is unlocked for testers. You are not being charged.")
-                        .font(FDFont.ui(12))
-                        .foregroundStyle(theme.fog)
-                        .fixedSize(horizontal: false, vertical: true)
-                } else if tierOverride != .none {
-                    Text("Testing override active — \(tierOverride.title). This build is not billing through RevenueCat.")
+                } else if Constants.Debug.isInternalBuild, tierOverride != .none {
+                    Text("Debug override active — \(tierOverride.title). This build is not billing through RevenueCat.")
                         .font(FDFont.ui(12))
                         .foregroundStyle(theme.warning)
                         .fixedSize(horizontal: false, vertical: true)
@@ -156,7 +149,7 @@ struct SettingsView: View {
         MetalCard {
             VStack(alignment: .leading, spacing: 14) {
                 FDSectionLabel(text: "Testing · not shipped")
-                Text("Forces a tier so both sides of the paywall can be exercised without a working purchase. Has no effect on an App Store build.")
+                Text("Forces a tier so both sides of the paywall can be exercised without a purchase. Debug builds only — compiled out of App Store and TestFlight.")
                     .font(FDFont.ui(12))
                     .foregroundStyle(theme.fog)
                     .fixedSize(horizontal: false, vertical: true)
@@ -168,7 +161,7 @@ struct SettingsView: View {
                         HapticService.select()
                     }
                 }
-                Text(Constants.Debug.isTestFlight ? "TestFlight build" : "Debug build")
+                Text("Debug build")
                     .font(FDFont.mono(11))
                     .foregroundStyle(theme.fog)
             }
@@ -280,10 +273,18 @@ struct SettingsView: View {
         Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.0"
     }
 
+    private var appBuild: String {
+        Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "1"
+    }
+
     private func chooser(title: String, subtitle: String? = nil, selected: Bool, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            HStack(alignment: .top) {
-                VStack(alignment: .leading, spacing: 4) {
+        Button {
+            guard !selected else { return }
+            action()
+            HapticService.select()
+        } label: {
+            HStack(alignment: .top, spacing: FDSpace.snug) {
+                VStack(alignment: .leading, spacing: FDSpace.hair) {
                     Text(title)
                         .font(FDFont.ui(15, weight: .medium))
                         .foregroundStyle(theme.bone)
@@ -291,12 +292,25 @@ struct SettingsView: View {
                         Text(subtitle)
                             .font(FDFont.ui(12))
                             .foregroundStyle(theme.fog)
+                            // A Button label centres wrapped text by default,
+                            // which left every two-line option ragged on both
+                            // edges inside a left-aligned card.
+                            .multilineTextAlignment(.leading)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
                 }
-                Spacer()
+                Spacer(minLength: 0)
                 Image(systemName: selected ? "checkmark.circle.fill" : "circle")
+                    .font(.system(size: 18))
                     .foregroundStyle(selected ? theme.brass : theme.fog)
             }
+            .frame(minHeight: 44)
+            // The Spacer between the label and the tick is not hit-testable on
+            // its own, so most of this row was dead to touch.
+            .contentShape(Rectangle())
         }
+        .buttonStyle(.plain)
+        .accessibilityLabel(subtitle.map { "\(title). \($0)" } ?? title)
+        .accessibilityAddTraits(selected ? [.isButton, .isSelected] : .isButton)
     }
 }

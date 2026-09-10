@@ -13,25 +13,64 @@ struct PaywallSheet: View {
             ZStack {
                 FDScreenBackground()
                 ScrollView {
-                    VStack(alignment: .leading, spacing: 22) {
-                        VStack(alignment: .leading, spacing: 10) {
-                            Text("PREMIUM")
+                    VStack(alignment: .leading, spacing: FDSpace.gutter) {
+                        VStack(alignment: .leading, spacing: FDSpace.snug) {
+                            Text("HANGAR PREMIUM")
                                 .font(FDFont.micro(11))
                                 .tracking(4)
                                 .foregroundStyle(theme.brass)
-                            Text("Unlimited surfaces.")
-                                .font(FDFont.display(34))
+                            Text("Your whole stack, one thumb.")
+                                .font(FDFont.display(32))
                                 .foregroundStyle(theme.bone)
-                            Text("Live Activities, Siri macros, team sync, and chained execution profiles. Start with a \(Constants.Monetization.freeTrialDays)-day free trial.")
+                                .fixedSize(horizontal: false, vertical: true)
+                            Text("Free gives you one service and three commands. Premium turns Hangar into the control deck for everything you ship.")
                                 .font(FDFont.ui(15))
                                 .foregroundStyle(theme.fog)
+                                .fixedSize(horizontal: false, vertical: true)
                         }
-                        VStack(spacing: 10) {
-                            perk("Infinite decks and command pads", "square.grid.2x2")
-                            perk("Lock screen Live Activity pipeline", "lock.display")
-                            perk("Siri Shortcut macros", "mic")
-                            perk("Team synchronization", "person.2")
-                            perk("Automated execution profiles", "arrow.triangle.branch")
+
+                        // The trial is the offer, so it gets its own block
+                        // instead of being the last clause of a paragraph.
+                        HStack(spacing: FDSpace.snug) {
+                            Image(systemName: "gift")
+                                .font(.system(size: 16, weight: .medium))
+                                .foregroundStyle(theme.brass)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("\(Constants.Monetization.freeTrialDays) days free")
+                                    .font(FDFont.ui(15, weight: .semibold))
+                                    .foregroundStyle(theme.bone)
+                                Text("Cancel any time before it ends and you pay nothing.")
+                                    .font(FDFont.ui(12))
+                                    .foregroundStyle(theme.fog)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+                            Spacer(minLength: 0)
+                        }
+                        .padding(FDSpace.snug)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(theme.brass.opacity(0.1), in: RoundedRectangle(cornerRadius: FDRadius.field, style: .continuous))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: FDRadius.field, style: .continuous)
+                                .stroke(theme.brass.opacity(0.28), lineWidth: 1)
+                        )
+                        .accessibilityElement(children: .combine)
+
+                        VStack(alignment: .leading, spacing: FDSpace.snug) {
+                            perk("Unlimited services and commands",
+                                 "Free stops at \(Constants.Limits.freeDeckCount) service and \(Constants.Limits.freeButtonCount) commands.",
+                                 "square.grid.2x2")
+                            perk("Flows",
+                                 "Chain commands with waits between them — one press runs the lot.",
+                                 "arrow.triangle.branch")
+                            perk("Live Activities",
+                                 "Watch a deploy land from the Lock Screen.",
+                                 "bolt.badge.clock")
+                            perk("Siri and Shortcuts",
+                                 "“Hey Siri, roll back production.”",
+                                 "mic")
+                            perk("Team sync",
+                                 "Teammates join with a code and press the same commands.",
+                                 "person.2")
                         }
                         if controller.packages.isEmpty {
                             MetalCard {
@@ -64,13 +103,10 @@ struct PaywallSheet: View {
                             }
                         }
 
-                        promoSection
+                        offerCodeSection
 
                         if let error = controller.errorMessage {
                             Text(error).font(FDFont.ui(13)).foregroundStyle(theme.rust)
-                        }
-                        if let notice = controller.promoNotice {
-                            Text(notice).font(FDFont.ui(13)).foregroundStyle(theme.moss)
                         }
                         Button("Restore purchases") {
                             Task {
@@ -102,7 +138,7 @@ struct PaywallSheet: View {
             .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
                 Task {
                     await controller.store.refresh()
-                    if JudgePromoStore.isUnlocked || controller.store.isPremium {
+                    if controller.store.isPremium {
                         app.applyPromoUnlock()
                     }
                 }
@@ -146,33 +182,13 @@ struct PaywallSheet: View {
         )
     }
 
-    private var promoSection: some View {
-        MetalCard {
-            VStack(alignment: .leading, spacing: 12) {
-                FDSectionLabel(text: "Have a code?")
-                FDField(
-                    title: "Promo code",
-                    text: $controller.promoCode,
-                    placeholder: "HANGAR-JUDGE",
-                    autocapitalization: .characters
-                )
-                FDPrimaryButton(title: "Redeem code", isLoading: controller.isWorking) {
-                    Task {
-                        guard let userId = app.userId else { return }
-                        await controller.redeemJudgePromo(userId: userId)
-                        if controller.showSuccess {
-                            app.applyPromoUnlock()
-                            dismiss()
-                        }
-                    }
-                }
-                Button("Redeem App Store offer code") {
-                    controller.redeemAppStoreOfferCode()
-                }
-                .font(FDFont.ui(13, weight: .medium))
-                .foregroundStyle(theme.brass)
-            }
+    private var offerCodeSection: some View {
+        Button("Redeem App Store offer code") {
+            controller.redeemAppStoreOfferCode()
         }
+        .font(FDFont.ui(14, weight: .medium))
+        .foregroundStyle(theme.brass)
+        .frame(maxWidth: .infinity)
     }
 
     
@@ -200,15 +216,26 @@ struct PaywallSheet: View {
         .padding(.top, 6)
     }
 
-    private func perk(_ title: String, _ symbol: String) -> some View {
-        HStack(spacing: 12) {
+    /// A perk says what it is *and* what it gets you. A bare list of nouns
+    /// ("Team sync", "Live Activities") asks the reader to already know what
+    /// they are worth.
+    private func perk(_ title: String, _ detail: String, _ symbol: String) -> some View {
+        HStack(alignment: .top, spacing: FDSpace.snug) {
             Image(systemName: symbol)
+                .font(.system(size: 15, weight: .medium))
                 .foregroundStyle(theme.brass)
-                .frame(width: 28)
-            Text(title)
-                .font(FDFont.ui(15))
-                .foregroundStyle(theme.bone)
-            Spacer()
+                .frame(width: 26)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(FDFont.ui(15, weight: .medium))
+                    .foregroundStyle(theme.bone)
+                Text(detail)
+                    .font(FDFont.ui(12))
+                    .foregroundStyle(theme.fog)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: 0)
         }
+        .accessibilityElement(children: .combine)
     }
 }

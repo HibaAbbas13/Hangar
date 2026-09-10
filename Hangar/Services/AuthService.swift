@@ -86,11 +86,14 @@ final class AuthService: NSObject {
         pendingDisplayName = nil
         try Auth.auth().signOut()
         AppGroupStore.defaults.removeObject(forKey: SharedConstants.DefaultsKey.idToken)
+        AppGroupStore.persist()
     }
 
     func persistToken() async {
         guard let token = try? await idToken() else { return }
         AppGroupStore.defaults.set(token, forKey: SharedConstants.DefaultsKey.idToken)
+        WebhookService.shared.persistBaseURL()
+        AppGroupStore.persist()
     }
 
     
@@ -121,6 +124,7 @@ final class AuthService: NSObject {
             throw error
         }
         AppGroupStore.defaults.removeObject(forKey: SharedConstants.DefaultsKey.idToken)
+        AppGroupStore.persist()
     }
 
     

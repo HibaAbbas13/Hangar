@@ -19,7 +19,12 @@ enum WebhookServiceError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .invalidURL: return "Webhook URL is not valid."
-        case .http(let code, let body): return "Hook returned \(code): \(body)"
+        case .http(let code, let body):
+            let trimmed = body.trimmingCharacters(in: .whitespacesAndNewlines)
+            if trimmed.isEmpty {
+                return "The hook answered \(code)."
+            }
+            return "The hook answered \(code): \(trimmed)"
         case .function(let message): return message
         }
     }
@@ -39,6 +44,7 @@ final class WebhookService {
             ?? Constants.Functions.defaultRegion
         let url = "https://\(region)-\(projectId).cloudfunctions.net"
         AppGroupStore.defaults.set(url, forKey: SharedConstants.DefaultsKey.functionsBaseURL)
+        AppGroupStore.persist()
     }
 
     func upsertButton(ownerId: String, deckId: String, button: DeckButton, secret: WebhookSecret) async throws -> DeckButton {
@@ -134,12 +140,19 @@ final class WebhookService {
         let duration = Int(Date().timeIntervalSince(started) * 1000)
         let body = String(data: data, encoding: .utf8) ?? ""
         let ok = (200..<300).contains(code)
-        if !ok { throw WebhookServiceError.http(code, String(body.prefix(280))) }
+        // A 500 is a completed round trip that the endpoint refused, not a
+        // transport failure. Throwing it discarded the code, the duration and
+        // the response body — exactly the three things a developer opens the
+        // Console to read — so the failure is returned as a result and only a
+        // genuinely unreachable endpoint (which URLSession throws for) is an
+        // error.
         return TriggerResult(
-            status: .succeeded,
+            status: ok ? .succeeded : .failed,
             statusCode: code,
             durationMs: duration,
-            message: String(body.prefix(280)),
+            message: ok
+                ? String(body.prefix(280))
+                : WebhookServiceError.http(code, String(body.prefix(280))).localizedDescription,
             buttonLabel: button.label,
             deckName: ""
         )

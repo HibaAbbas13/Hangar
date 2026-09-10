@@ -34,3 +34,8 @@ firebase/.firebase/
 .firebaserc
 
 .DS_Store
+
+# Local marketing, judge notes, one-off generators — not the product.
+Marketing/
+Docs/
+scripts/

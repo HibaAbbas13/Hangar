@@ -18,17 +18,17 @@ struct ProfileView: View {
                     identityCard
                     statsCard
                     callsignCard
-                    legalCard
                     dangerCard
                 }
-                .padding(.horizontal, 20)
-                .padding(.top, 8)
-                .padding(.bottom, 120)
+                .padding(.horizontal, FDSpace.gutter)
+                .padding(.top, FDSpace.tight)
+                .padding(.bottom, FDChromeInset.bottom)
             }
+            .fdScrollEdges(top: true)
         }
         .toolbar(.hidden, for: .navigationBar)
         .onAppear { controller.load(app.profile) }
-        .alert("Delete this hangar?", isPresented: confirmBinding) {
+        .alert("Delete your account?", isPresented: confirmBinding) {
             Button("Cancel", role: .cancel) { controller.cancelDelete() }
             Button("Delete everything", role: .destructive) {
                 Task {
@@ -40,7 +40,7 @@ struct ProfileView: View {
                 }
             }
         } message: {
-            Text("Your decks, buttons, automations, activity log, and account are erased. This cannot be undone.")
+            Text("Your services, commands, flows, run log, and account are erased. This cannot be undone.")
         }
         .sheet(isPresented: passwordBinding) {
             reauthSheet
@@ -80,16 +80,16 @@ struct ProfileView: View {
     private var statsCard: some View {
         MetalCard {
             VStack(alignment: .leading, spacing: 14) {
-                FDSectionLabel(text: "Flight record")
+                FDSectionLabel(text: "Your usage")
                 HStack(spacing: 0) {
-                    stat(value: "\(decks.decks.count)", label: "Decks")
+                    stat(value: "\(decks.decks.count)", label: "Services")
                     divider
                     stat(value: "\(decks.buttons.count)", label: "Commands")
                     divider
                     stat(value: memberSince, label: "Since")
                 }
                 if Constants.Monetization.paywallEnabled, !app.isPremium {
-                    Text("Free tier: \(Constants.Limits.freeDeckCount) deck, \(Constants.Limits.freeButtonCount) commands.")
+                    Text("Free plan: \(Constants.Limits.freeDeckCount) service, \(Constants.Limits.freeButtonCount) commands.")
                         .font(FDFont.ui(12))
                         .foregroundStyle(theme.fog)
                     FDPrimaryButton(title: "Upgrade Hangar") { showPaywall = true }
@@ -101,13 +101,13 @@ struct ProfileView: View {
     private var callsignCard: some View {
         MetalCard {
             VStack(alignment: .leading, spacing: 12) {
-                FDField(title: "Callsign", text: $controller.displayName, placeholder: "Operator")
+                FDField(title: "Name", text: $controller.displayName, placeholder: "Operator")
                 if let notice = controller.nameNotice {
                     Text(notice)
                         .font(FDFont.ui(12))
                         .foregroundStyle(theme.fog)
                 }
-                FDGhostButton(title: "Save callsign", systemImage: "checkmark") {
+                FDGhostButton(title: "Save name", systemImage: "checkmark") {
                     Task {
                         guard let profile = app.profile else { return }
                         app.profile = await controller.saveName(profile: profile)
@@ -117,30 +117,15 @@ struct ProfileView: View {
         }
     }
 
-    private var legalCard: some View {
-        MetalCard {
-            VStack(alignment: .leading, spacing: 14) {
-                FDSectionLabel(text: "Legal & support")
-                NavigationLink { LegalView(document: LegalText.privacy) } label: {
-                    LegalLinkRow(title: "Privacy Policy", systemImage: "hand.raised")
-                }
-                FDHairline()
-                NavigationLink { LegalView(document: LegalText.terms) } label: {
-                    LegalLinkRow(title: "Terms of Use", systemImage: "doc.text")
-                }
-                FDHairline()
-                Link(destination: URL(string: "mailto:\(Constants.Legal.supportEmail)")!) {
-                    LegalLinkRow(title: "Contact support", systemImage: "envelope")
-                }
-            }
-        }
-    }
+    // Privacy, Terms and Contact support live on the Account screen. They were
+    // repeated here too — the same three rows one tap apart, which just made
+    // both screens longer without making either more useful.
 
     private var dangerCard: some View {
         MetalCard {
             VStack(alignment: .leading, spacing: 12) {
                 FDSectionLabel(text: "Danger zone")
-                Text("Deleting your hangar erases every deck, command, automation, and log entry we hold for you. It cannot be undone.")
+                Text("This erases every service, command, flow, and run-log entry we hold for you. It cannot be undone.")
                     .font(FDFont.ui(13))
                     .foregroundStyle(theme.fog)
                     .fixedSize(horizontal: false, vertical: true)

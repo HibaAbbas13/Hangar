@@ -18,8 +18,8 @@ enum TierOverride: String, CaseIterable, Identifiable {
     var subtitle: String {
         switch self {
         case .none: return "Whatever RevenueCat and Firestore actually say."
-        case .free: return "Locks premium rails so the gates can be tested."
-        case .premium: return "Unlocks every rail without a purchase."
+        case .free: return "Locks premium features so the gates can be tested."
+        case .premium: return "Unlocks every feature without a purchase."
         }
     }
 }
@@ -27,22 +27,11 @@ enum TierOverride: String, CaseIterable, Identifiable {
 enum TierOverrideStore {
     private static let key = "fd.debug.tierOverride"
 
-    
-    
-    
-    private static var fallback: TierOverride {
-        #if DEBUG
-        .premium
-        #else
-        Constants.Debug.isTestFlight ? .premium : .none
-        #endif
-    }
-
     static var current: TierOverride {
         get {
             guard Constants.Debug.isInternalBuild else { return .none }
             guard let raw = UserDefaults.standard.string(forKey: key),
-                  let value = TierOverride(rawValue: raw) else { return fallback }
+                  let value = TierOverride(rawValue: raw) else { return .none }
             return value
         }
         set {

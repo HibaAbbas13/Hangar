@@ -41,6 +41,7 @@ fileGroups:
   - Config
   - firebase
   - README.md
+  - LICENSE
 
 configFiles:
   Debug: Config/Base.xcconfig
@@ -76,7 +77,6 @@ targets:
         UIStatusBarStyle: UIStatusBarStyleLightContent
         UIUserInterfaceStyle: Dark
         NSSupportsLiveActivities: true
-        NSSupportsLiveActivitiesFrequentUpdates: true
         CFBundleURLTypes:
           - CFBundleURLName: com.dev.flightdeck
             CFBundleURLSchemes:
@@ -89,6 +89,11 @@ targets:
         DEMO_PASSWORD: $(DEMO_PASSWORD)
     entitlements:
       path: Hangar/Hangar.entitlements
+      properties:
+        com.apple.developer.applesignin:
+          - Default
+        com.apple.security.application-groups:
+          - group.com.dev.flightdeck
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.dev.flightdeck
@@ -129,6 +134,8 @@ targets:
       - path: Shared
       - path: Hangar/App/Data
       - path: Hangar/App/Theme
+    resources:
+      - path: HangarWidgets/PrivacyInfo.xcprivacy
     info:
       path: HangarWidgets/Info.plist
       properties:
@@ -138,9 +145,11 @@ targets:
         NSExtension:
           NSExtensionPointIdentifier: com.apple.widgetkit-extension
         NSSupportsLiveActivities: true
-        NSSupportsLiveActivitiesFrequentUpdates: true
     entitlements:
       path: HangarWidgets/HangarWidgets.entitlements
+      properties:
+        com.apple.security.application-groups:
+          - group.com.dev.flightdeck
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.dev.flightdeck.widgets

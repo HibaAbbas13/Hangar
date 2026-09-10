@@ -32,11 +32,14 @@ struct OnboardingView: View {
                     .tracking(4)
                     .foregroundStyle(theme.brass)
                 Spacer()
-                Button("Sample hangar") {
+                Button("Skip") {
                     app.skipToSampleHangar()
                 }
-                .font(FDFont.ui(13, weight: .medium))
-                .foregroundStyle(theme.brass)
+                .font(FDFont.ui(15, weight: .medium))
+                .foregroundStyle(theme.fog)
+                .frame(minWidth: 44, minHeight: 44)
+                .contentShape(Rectangle())
+                .accessibilityLabel("Skip onboarding")
             }
             .padding(.horizontal, 24)
             .padding(.top, 18)
@@ -75,18 +78,15 @@ struct OnboardingView: View {
             }
             .padding(.bottom, 22)
             .animation(FDMotion.snappy, value: page)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("Page \(page + 1) of \(pages.count)")
 
             VStack(spacing: 12) {
-                FDPrimaryButton(title: page == pages.count - 1 ? "Take the controls" : "Continue") {
+                FDPrimaryButton(title: page == pages.count - 1 ? "Get started" : "Continue") {
                     if page < pages.count - 1 {
                         withAnimation(FDMotion.card) { page += 1 }
                     } else {
                         app.completeOnboarding()
-                    }
-                }
-                if page == pages.count - 1 {
-                    FDGhostButton(title: "Load sample hangar") {
-                        app.skipToSampleHangar()
                     }
                 }
             }

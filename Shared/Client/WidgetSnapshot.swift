@@ -16,12 +16,22 @@ struct WidgetButtonSnapshot: Codable, Hashable, Identifiable {
     var method: String
     var headers: [String: String]
     var body: String
+    var firesViaCloud: Bool
 
     enum CodingKeys: String, CodingKey {
-        case id, label, iconName, url, method, headers, body
+        case id, label, iconName, url, method, headers, body, firesViaCloud
     }
 
-    init(id: String, label: String, iconName: String, url: String, method: String, headers: [String: String], body: String) {
+    init(
+        id: String,
+        label: String,
+        iconName: String,
+        url: String,
+        method: String,
+        headers: [String: String],
+        body: String,
+        firesViaCloud: Bool = false
+    ) {
         self.id = id
         self.label = label
         self.iconName = iconName
@@ -29,6 +39,7 @@ struct WidgetButtonSnapshot: Codable, Hashable, Identifiable {
         self.method = method
         self.headers = headers
         self.body = body
+        self.firesViaCloud = firesViaCloud
     }
 
     init(from decoder: Decoder) throws {
@@ -40,14 +51,16 @@ struct WidgetButtonSnapshot: Codable, Hashable, Identifiable {
         method = (try? c.decode(String.self, forKey: .method)) ?? "POST"
         headers = (try? c.decode([String: String].self, forKey: .headers)) ?? [:]
         body = (try? c.decode(String.self, forKey: .body)) ?? ""
+        firesViaCloud = (try? c.decode(Bool.self, forKey: .firesViaCloud)) ?? url.isEmpty
+            || url.hasPrefix(Constants.Crypto.encryptedPrefix)
     }
 }
 
 enum WidgetSnapshotStore {
     static func save(_ decks: [WidgetDeckSnapshot]) {
-        if let data = try? JSONEncoder().encode(decks) {
-            AppGroupStore.defaults.set(data, forKey: SharedConstants.DefaultsKey.widgetSnapshot)
-        }
+        guard let data = try? JSONEncoder().encode(decks) else { return }
+        AppGroupStore.defaults.set(data, forKey: SharedConstants.DefaultsKey.widgetSnapshot)
+        AppGroupStore.persist()
     }
 
     static func load() -> [WidgetDeckSnapshot] {
@@ -70,6 +83,7 @@ enum LastTriggerStore {
     static func save(_ value: LastTriggerSnapshot) {
         if let data = try? JSONEncoder().encode(value) {
             AppGroupStore.defaults.set(data, forKey: SharedConstants.DefaultsKey.lastTrigger)
+            AppGroupStore.persist()
         }
     }
 

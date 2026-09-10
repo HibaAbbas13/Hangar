@@ -23,6 +23,15 @@ struct FDScreenBackground: View {
                 endRadius: 380
             )
             .ignoresSafeArea()
+
+            // A little material noise. Flat dark fills read as cheap; grain
+            // makes the same colour read as a lit surface.
+            Image("Grain")
+                .resizable(resizingMode: .tile)
+                .opacity(0.035)
+                .blendMode(.overlay)
+                .allowsHitTesting(false)
+                .ignoresSafeArea()
         }
     }
 }
@@ -121,7 +130,7 @@ struct FDPrimaryButton: View {
                     startPoint: .top,
                     endPoint: .bottom
                 ),
-                in: RoundedRectangle(cornerRadius: 16, style: .continuous)
+                in: RoundedRectangle(cornerRadius: FDRadius.field, style: .continuous)
             )
             .shadow(color: theme.brass.opacity(0.18), radius: 8, y: 4)
         }
@@ -148,9 +157,9 @@ struct FDGhostButton: View {
             .foregroundStyle(theme.bone)
             .frame(maxWidth: .infinity)
             .frame(height: 52)
-            .background(theme.raised, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .background(theme.raised, in: RoundedRectangle(cornerRadius: FDRadius.field, style: .continuous))
             .overlay(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                RoundedRectangle(cornerRadius: FDRadius.field, style: .continuous)
                     .stroke(theme.hairline, lineWidth: 1)
             )
         }
@@ -185,9 +194,9 @@ struct FDField: View {
             .autocorrectionDisabled(monospaced)
             .padding(.horizontal, 14)
             .padding(.vertical, 14)
-            .background(theme.inset, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .background(theme.inset, in: RoundedRectangle(cornerRadius: FDRadius.field, style: .continuous))
             .overlay(
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                RoundedRectangle(cornerRadius: FDRadius.field, style: .continuous)
                     .stroke(theme.hairline, lineWidth: 1)
             )
         }

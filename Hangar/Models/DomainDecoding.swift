@@ -57,7 +57,8 @@ extension Deck {
 extension DeckButton {
     enum CodingKeys: String, CodingKey {
         case id, label, webhookUrl, iconName, lastTriggered, method, headers, body
-        case timeoutMs, requiresConfirmation, sortOrder, isEncrypted, lastStatus
+        case timeoutMs, requiresConfirmation, sortOrder, isEncrypted, lastStatus, host
+        case lastStatusCode, lastDurationMs
     }
 
     init(from decoder: Decoder) throws {
@@ -75,6 +76,9 @@ extension DeckButton {
         sortOrder = c.fd(.sortOrder, 0)
         isEncrypted = c.fd(.isEncrypted, webhookUrl.hasPrefix(Constants.Crypto.encryptedPrefix))
         lastStatus = c.fd(.lastStatus, .idle)
+        host = c.fd(.host, "")
+        lastStatusCode = try c.decodeIfPresent(Int.self, forKey: .lastStatusCode)
+        lastDurationMs = c.fd(.lastDurationMs, 0)
     }
 }
 

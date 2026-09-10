@@ -87,11 +87,35 @@ struct DeckButton: Identifiable, Codable, Hashable {
     var requiresConfirmation: Bool
     var sortOrder: Int
     var isEncrypted: Bool
+    /// Host only — safe to store and show beside an encrypted command.
+    var host: String
     var lastStatus: TriggerStatus
+    /// The response code and round trip of the last run. The pad shows these
+    /// so a press leaves durable evidence on the key itself, instead of only
+    /// in History.
+    var lastStatusCode: Int?
+    var lastDurationMs: Int
+
+    var lastOutcome: FDRunOutcome {
+        FDRunOutcome(
+            status: lastStatus,
+            statusCode: lastStatusCode,
+            durationMs: lastDurationMs,
+            at: lastTriggered
+        )
+    }
 
     var hasSecret: Bool {
         !webhookUrl.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
+
+    /// A command that has been placed on the pad but has no endpoint yet.
+    ///
+    /// Redeploy and rollback need a deploy hook, which is a secret only its
+    /// owner can mint. Those commands ship visible but unarmed so the pad shows
+    /// what Hangar is for, and pressing one opens the editor instead of firing
+    /// a request at nothing.
+    var needsArming: Bool { !hasSecret }
 
     static func make(
         id: String = UUID().uuidString,
@@ -112,7 +136,10 @@ struct DeckButton: Identifiable, Codable, Hashable {
             requiresConfirmation: true,
             sortOrder: sortOrder,
             isEncrypted: false,
-            lastStatus: .idle
+            host: "",
+            lastStatus: .idle,
+            lastStatusCode: nil,
+            lastDurationMs: 0
         )
     }
 }

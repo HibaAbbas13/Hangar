@@ -18,7 +18,7 @@ struct AuthView: View {
                         .font(FDFont.micro(11))
                         .tracking(5)
                         .foregroundStyle(theme.brass)
-                    Text(controller.isRegistering ? "Create a hangar" : "Sign in to the tower")
+                    Text(controller.isRegistering ? "Create your account" : "Sign in")
                         .font(FDFont.display(34))
                         .foregroundStyle(theme.bone)
                     Text("Use email on the Simulator. Apple Sign-In needs a physical iPhone.")
@@ -28,7 +28,7 @@ struct AuthView: View {
                 .padding(.top, 36)
 
                 if controller.isRegistering {
-                    FDField(title: "Callsign", text: $controller.displayName, placeholder: "Ada Lovelace")
+                    FDField(title: "Name", text: $controller.displayName, placeholder: "Ada Lovelace")
                 }
                 FDField(
                     title: "Email",
@@ -53,7 +53,7 @@ struct AuthView: View {
                 }
 
                 FDPrimaryButton(
-                    title: controller.isRegistering ? "Create hangar" : "Enter",
+                    title: controller.isRegistering ? "Create account" : "Enter",
                     isLoading: controller.isWorking
                 ) {
                     Task { await controller.submitEmail() }
@@ -70,7 +70,7 @@ struct AuthView: View {
                     }
                 }
 
-                FDGhostButton(title: "Open sample hangar", systemImage: "square.stack.3d.up") {
+                FDGhostButton(title: "Look around first", systemImage: "square.stack.3d.up") {
                     Task { await controller.enterSampleHangar() }
                 }
                 .disabled(controller.isWorking)
@@ -81,7 +81,7 @@ struct AuthView: View {
                         controller.errorMessage = nil
                     }
                 } label: {
-                    Text(controller.isRegistering ? "Already have a hangar? Sign in" : "Need a hangar? Register")
+                    Text(controller.isRegistering ? "Already have an account? Sign in" : "New here? Create an account")
                         .font(FDFont.ui(14, weight: .medium))
                         .foregroundStyle(theme.brass)
                         .frame(maxWidth: .infinity)

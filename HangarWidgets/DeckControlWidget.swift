@@ -85,7 +85,7 @@ struct DeckControlView: View {
                 Text("HANGAR")
                     .font(.system(size: 11, weight: .semibold))
                     .foregroundStyle(Color(red: 0.745, green: 0.588, blue: 0.357))
-                Text("Open the app and commission a deck to arm this pad.")
+                Text("Sign in to Hangar and open Decks once to arm this pad.")
                     .font(.system(size: 13))
                     .foregroundStyle(Color(red: 0.565, green: 0.537, blue: 0.486))
             }

@@ -70,16 +70,25 @@ final class AppController: ObservableObject {
     func refreshPremiumFromStore() async {
         await revenueCat.refresh()
         applyPremiumFlag()
-        guard Constants.Monetization.paywallEnabled, TierOverrideStore.current == .none else { return }
-        guard let userId else { return }
+        guard Constants.Monetization.paywallEnabled, let userId else { return }
+        if Constants.Access.isAlwaysPremium(profile?.email) {
+            if profile?.tier != .premium {
+                try? await users.setTier(userId: userId, tier: .premium)
+            }
+            return
+        }
+        guard TierOverrideStore.current == .none, revenueCat.entitlementResolved else { return }
         if revenueCat.isPremium, profile?.tier != .premium {
             try? await users.setTier(userId: userId, tier: .premium)
+        } else if !revenueCat.isPremium, profile?.tier == .premium {
+            try? await users.setTier(userId: userId, tier: .free)
         }
     }
 
     func signOut() {
         try? auth.signOut()
         profile = nil
+        WidgetSyncService.clear()
         applyPremiumFlag()
         session = .unauthenticated
     }
@@ -130,7 +139,12 @@ final class AppController: ObservableObject {
     }
 
     private func applyPremiumFlag() {
-        
+        // Accounts on the allowlist are premium everywhere, so reviewing and
+        // testing never hinge on a sandbox purchase completing.
+        if Constants.Access.isAlwaysPremium(profile?.email) {
+            isPremium = true
+            return
+        }
         guard Constants.Monetization.paywallEnabled else {
             isPremium = true
             return
@@ -141,9 +155,7 @@ final class AppController: ObservableObject {
         case .free:
             isPremium = false
         case .none:
-            isPremium = profile?.tier == .premium
-                || revenueCat.isPremium
-                || JudgePromoStore.isUnlocked
+            isPremium = revenueCat.isPremium
         }
     }
 

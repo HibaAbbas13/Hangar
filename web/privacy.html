@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Hangar — Privacy Policy</title>
+<meta name="description" content="Last updated 29 August 2026. Hangar is a control surface for webhooks you already own. This policy explains what leaves your iPhone and what does not.">
+<style>
+:root{--void:#0e0f11;--panel:#17191c;--line:#26292e;--bone:#e8eaed;--fog:#7c848c;--brass:#4c9af0}
+*{box-sizing:border-box}
+body{margin:0;background:var(--void);color:var(--bone);
+  font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  -webkit-text-size-adjust:100%}
+.wrap{max-width:720px;margin:0 auto;padding:56px 22px 96px}
+.eyebrow{font-size:11px;letter-spacing:.28em;text-transform:uppercase;color:var(--fog);margin:0 0 10px}
+h1{font-size:2.1rem;line-height:1.15;margin:0 0 14px;font-weight:600;letter-spacing:-.01em}
+.intro{color:var(--fog);margin:0 0 40px}
+section{border-top:1px solid var(--line);padding:26px 0 4px}
+h2{font-size:1.02rem;margin:0 0 12px;font-weight:600}
+p,li{color:#c6cbd1}
+p{margin:0 0 14px}
+ul{margin:0 0 14px;padding-left:20px}
+li{margin:0 0 8px}
+a{color:var(--brass)}
+footer{border-top:1px solid var(--line);margin-top:40px;padding-top:22px;color:var(--fog);font-size:14px}
+footer a{margin-right:18px}
+@media(prefers-color-scheme:light){
+  :root{--void:#fff;--panel:#f6f7f9;--line:#e2e5e9;--bone:#101418;--fog:#5b636b;--brass:#1b65ba}
+  p,li{color:#333a41}
+}
+</style>
+</head>
+<body>
+<main class="wrap">
+<p class="eyebrow">Hangar</p>
+<h1>Privacy Policy</h1>
+<p class="intro">Last updated 29 August 2026. Hangar is a control surface for webhooks you already own. This policy explains what leaves your iPhone and what does not.</p>
+<section><h2>What we collect</h2>
+<ul><li>Account record — the email address and callsign you sign up with, or the email Apple relays when you use Sign in with Apple. Stored in Firebase Authentication.</li><li>Hangar contents — the services, commands, and flows you create, including the webhook URLs, HTTP methods, headers, and request bodies you enter.</li><li>Run log — the label, service, status code, duration, and any error message for each command you fire, so the Console can show a history.</li><li>Purchase state — RevenueCat tells us whether your premium entitlement is active. We never see your payment details; Apple handles the transaction.</li><li>Diagnostics — Firebase Analytics collects standard app usage events such as launches and crashes.</li></ul></section>
+<section><h2>What we do not collect</h2>
+<p>We do not collect your contacts, photos, location, health data, or advertising identifiers. Hangar contains no third-party advertising or tracking SDKs, and we do not sell or share your data with data brokers.</p></section>
+<section><h2>Webhook URLs and secrets</h2>
+<p>Webhook URLs, headers and request bodies are the sensitive part of your hangar. When our backend is reachable they are encrypted with AES-GCM before they are stored, and decrypted only at the moment a command fires — anyone reading the raw database sees ciphertext.</p>
+<p>If the backend cannot be reached, the command is still saved so the app keeps working. In that case the URL is stored as you entered it, readable only by your own account under our access rules. The app shows whether a command is stored encrypted.</p>
+<p>When a command fires in on-device mode, the request goes straight from your iPhone to the endpoint you configured. We are not in the path and never see the response body — only the status code and duration recorded in your activity log.</p></section>
+<section><h2>Where it is stored</h2>
+<p>Data lives in Google Firebase (Authentication, Cloud Firestore, and Cloud Functions) under our project, and in RevenueCat for entitlement state. Both are processors acting on our instructions. A copy of your most recent run and your service layout is cached in an App Group container on your device so widgets, Siri, and Lock Screen controls work.</p></section>
+<section><h2>How long we keep it</h2>
+<p>Your hangar stays until you delete it. Deleting a service or command removes it and its stored secret. Deleting your account removes your profile, services, commands, flows, run log, invites, and authentication record. Backups and logs age out within 30 days.</p></section>
+<section><h2>Your controls</h2>
+<ul><li>Edit or remove any service, command, or flow at any time.</li><li>Delete your account from Hangar → Profile → Delete account. This is immediate and cannot be undone.</li><li>Request a copy of your data, or ask a question about this policy, by writing to <a href="mailto:hibaabbas1306@gmail.com">hibaabbas1306@gmail.com</a>.</li></ul>
+<p>Depending on where you live you may have additional rights under the GDPR or CCPA, including access, correction, portability, and erasure. Deleting your account satisfies an erasure request; email us for anything else.</p></section>
+<section><h2>Children</h2>
+<p>Hangar is a developer tool and is not directed to children under 13. We do not knowingly collect data from them. If you believe a child has created an account, email us and we will remove it.</p></section>
+<section><h2>Changes and contact</h2>
+<p>If this policy changes in a way that affects you, we will note it in the app before the change takes effect. Questions go to <a href="mailto:hibaabbas1306@gmail.com">hibaabbas1306@gmail.com</a>.</p></section>
+<footer><a href="./privacy.html">Privacy</a><a href="./terms.html">Terms</a><a href="./support.html">Support</a><a href="mailto:hibaabbas1306@gmail.com">hibaabbas1306@gmail.com</a></footer>
+</main>
+</body>
+</html>

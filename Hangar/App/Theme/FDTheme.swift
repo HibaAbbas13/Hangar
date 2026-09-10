@@ -63,6 +63,49 @@ extension EnvironmentValues {
     }
 }
 
+/// One corner scale for the whole app. Before this there were four different
+/// radii in play and nothing said which to use where.
+enum FDRadius {
+    /// Inputs and small chips.
+    static let field: CGFloat = 14
+    /// Command keys — the hero control.
+    static let key: CGFloat = 22
+    /// Panels and cards.
+    static let card: CGFloat = 22
+    /// The recessed well the pad sits in.
+    static let well: CGFloat = 28
+}
+
+/// Depth is a system, not a per-view guess: how far a surface sits above the
+/// panel behind it.
+enum FDElevation {
+    case flush, raised, floating
+
+    var radius: CGFloat {
+        switch self {
+        case .flush: return 4
+        case .raised: return 14
+        case .floating: return 26
+        }
+    }
+
+    var y: CGFloat {
+        switch self {
+        case .flush: return 1
+        case .raised: return 8
+        case .floating: return 14
+        }
+    }
+
+    var opacity: Double {
+        switch self {
+        case .flush: return 0.22
+        case .raised: return 0.34
+        case .floating: return 0.46
+        }
+    }
+}
+
 enum FDFont {
     
     

@@ -8,7 +8,7 @@ final class RevenueCatService: ObservableObject {
     @Published private(set) var isPremium = false
     @Published private(set) var offerings: Offerings?
     @Published private(set) var isConfigured = false
-    
+    @Published private(set) var entitlementResolved = false
     @Published private(set) var loadFailure: String?
 
     private var apiKey: String {
@@ -36,7 +36,7 @@ final class RevenueCatService: ObservableObject {
         do {
             let info = try await Purchases.shared.customerInfo()
             isPremium = info.entitlements[Constants.RevenueCat.entitlementId]?.isActive == true
-                || JudgePromoStore.isUnlocked
+            entitlementResolved = true
             let loaded = try await Purchases.shared.offerings()
             offerings = loaded
 
@@ -57,7 +57,6 @@ final class RevenueCatService: ObservableObject {
                 loadFailure = nil
             }
         } catch {
-            isPremium = false
             loadFailure = error.localizedDescription
         }
     }
@@ -65,14 +64,14 @@ final class RevenueCatService: ObservableObject {
     func purchase(_ package: Package) async throws -> Bool {
         let result = try await Purchases.shared.purchase(package: package)
         isPremium = result.customerInfo.entitlements[Constants.RevenueCat.entitlementId]?.isActive == true
-            || JudgePromoStore.isUnlocked
+        entitlementResolved = true
         return isPremium
     }
 
     func restore() async throws -> Bool {
         let info = try await Purchases.shared.restorePurchases()
         isPremium = info.entitlements[Constants.RevenueCat.entitlementId]?.isActive == true
-            || JudgePromoStore.isUnlocked
+        entitlementResolved = true
         return isPremium
     }
 

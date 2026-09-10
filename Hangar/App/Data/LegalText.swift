@@ -26,8 +26,8 @@ enum LegalText {
                 heading: "What we collect",
                 body: """
                 • Account record — the email address and callsign you sign up with, or the email Apple relays when you use Sign in with Apple. Stored in Firebase Authentication.
-                • Hangar contents — the decks, buttons, and automations you create, including the webhook URLs, HTTP methods, headers, and request bodies you enter.
-                • Activity log — the label, deck, status code, duration, and any error message for each command you fire, so the Console can show a history.
+                • Hangar contents — the services, commands, and flows you create, including the webhook URLs, HTTP methods, headers, and request bodies you enter.
+                • Run log — the label, service, status code, duration, and any error message for each command you fire, so the Console can show a history.
                 • Purchase state — RevenueCat tells us whether your premium entitlement is active. We never see your payment details; Apple handles the transaction.
                 • Diagnostics — Firebase Analytics collects standard app usage events such as launches and crashes.
                 """
@@ -51,19 +51,19 @@ enum LegalText {
             .init(
                 heading: "Where it is stored",
                 body: """
-                Data lives in Google Firebase (Authentication, Cloud Firestore, and Cloud Functions) under our project, and in RevenueCat for entitlement state. Both are processors acting on our instructions. A copy of your most recent trigger and the deck layout is cached in an App Group container on your device so widgets, Siri, and Lock Screen controls work.
+                Data lives in Google Firebase (Authentication, Cloud Firestore, and Cloud Functions) under our project, and in RevenueCat for entitlement state. Both are processors acting on our instructions. A copy of your most recent run and your service layout is cached in an App Group container on your device so widgets, Siri, and Lock Screen controls work.
                 """
             ),
             .init(
                 heading: "How long we keep it",
                 body: """
-                Your hangar stays until you delete it. Deleting a deck or button removes it and its stored secret. Deleting your account removes your profile, decks, buttons, automations, activity log, invites, and authentication record. Backups and logs age out within 30 days.
+                Your hangar stays until you delete it. Deleting a service or command removes it and its stored secret. Deleting your account removes your profile, services, commands, flows, run log, invites, and authentication record. Backups and logs age out within 30 days.
                 """
             ),
             .init(
                 heading: "Your controls",
                 body: """
-                • Edit or remove any deck, button, or automation at any time.
+                • Edit or remove any service, command, or flow at any time.
                 • Delete your account from Hangar → Profile → Delete account. This is immediate and cannot be undone.
                 • Request a copy of your data, or ask a question about this policy, by writing to \(Constants.Legal.supportEmail).
 
@@ -112,7 +112,7 @@ enum LegalText {
             .init(
                 heading: "Premium and billing",
                 body: """
-                The free tier includes one deck and three buttons. Premium unlocks unlimited decks and buttons, Live Activities, Siri macros, team sync, and execution profiles.
+                The free plan includes one service and three commands, with widgets, Lock Screen access, Siri and the full run log included. Premium lifts those limits and adds flows and team sync.
 
                 Premium is sold as an auto-renewing subscription through the App Store. Payment is charged to your Apple Account at confirmation. It renews automatically unless auto-renew is turned off at least 24 hours before the period ends, and your account is charged for renewal within 24 hours of the end of the current period. Manage or cancel in Settings → Apple Account → Subscriptions. Refunds are handled by Apple under their policy, not by us.
                 """

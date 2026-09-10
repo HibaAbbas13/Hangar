@@ -12,6 +12,7 @@ struct DeckEditorView: View {
     @State private var provider: ServiceProvider = .vercel
     @State private var isActive = true
     @State private var error: String?
+    @State private var showDeleteConfirm = false
 
     var body: some View {
         NavigationStack {
@@ -19,7 +20,7 @@ struct DeckEditorView: View {
                 FDScreenBackground(brassGlow: false)
                 ScrollView {
                     VStack(alignment: .leading, spacing: 22) {
-                        FDField(title: "Deck name", text: $name, placeholder: "Vercel Micro-Services")
+                        FDField(title: "Service name", text: $name, placeholder: "therango production")
                         VStack(alignment: .leading, spacing: 10) {
                             FDSectionLabel(text: "Provider")
                             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
@@ -49,45 +50,73 @@ struct DeckEditorView: View {
                             }
                         }
                         Toggle(isOn: $isActive) {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("Active surface")
+                            VStack(alignment: .leading, spacing: FDSpace.hair) {
+                                Text("Active")
                                     .font(FDFont.ui(15, weight: .medium))
                                     .foregroundStyle(theme.bone)
-                                Text("Inactive decks stay in the hangar and skip widgets.")
+                                Text("Inactive services stay in your account but are hidden from widgets and Siri.")
                                     .font(FDFont.ui(13))
                                     .foregroundStyle(theme.fog)
+                                    .fixedSize(horizontal: false, vertical: true)
                             }
                         }
                         .tint(theme.brass)
                         if let error {
                             Text(error).font(FDFont.ui(13)).foregroundStyle(theme.rust)
                         }
-                        FDPrimaryButton(title: existing == nil ? "Commission deck" : "Save deck") {
+                        FDPrimaryButton(title: existing == nil ? "Add service" : "Save service") {
                             Task { await save() }
                         }
                         if existing != nil {
-                            FDGhostButton(title: "Decommission", systemImage: "trash") {
-                                Task {
-                                    guard let existing else { return }
-                                    do {
-                                        try await decks.deleteDeck(existing)
-                                        dismiss()
-                                    } catch {
-                                        self.error = AppErrorMapper.message(for: error)
-                                    }
-                                }
+                            // Deleting a service takes its commands with it and
+                            // cannot be undone. It used to be a single tap on a
+                            // button styled like every other one.
+                            Button(role: .destructive) {
+                                showDeleteConfirm = true
+                            } label: {
+                                Label("Delete service", systemImage: "trash")
+                                    .font(FDFont.ui(15, weight: .semibold))
+                                    .foregroundStyle(theme.rust)
+                                    .frame(maxWidth: .infinity)
+                                    .frame(height: 52)
+                                    .background(theme.rust.opacity(0.1), in: RoundedRectangle(cornerRadius: FDRadius.field, style: .continuous))
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: FDRadius.field, style: .continuous)
+                                            .stroke(theme.rust.opacity(0.35), lineWidth: 1)
+                                    )
                             }
+                            .buttonStyle(FDPressStyle(depth: 2))
                         }
                     }
                     .padding(22)
                 }
             }
-            .navigationTitle(existing == nil ? "New deck" : "Deck settings")
+            .navigationTitle(existing == nil ? "New service" : "Service settings")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Close") { dismiss() }.foregroundStyle(theme.fog)
                 }
+            }
+            .confirmationDialog(
+                existing.map { "Delete “\($0.name)”?" } ?? "Delete service?",
+                isPresented: $showDeleteConfirm,
+                titleVisibility: .visible
+            ) {
+                Button("Delete service and its commands", role: .destructive) {
+                    Task {
+                        guard let existing else { return }
+                        do {
+                            try await decks.deleteDeck(existing)
+                            dismiss()
+                        } catch {
+                            self.error = AppErrorMapper.message(for: error)
+                        }
+                    }
+                }
+                Button("Keep", role: .cancel) {}
+            } message: {
+                Text("Its commands are deleted with it. Runs already in the Console are kept. This cannot be undone.")
             }
             .onAppear {
                 if let existing {
@@ -102,7 +131,7 @@ struct DeckEditorView: View {
     private func save() async {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else {
-            error = "Name the deck before commissioning."
+            error = "Give the service a name first."
             return
         }
         do {
